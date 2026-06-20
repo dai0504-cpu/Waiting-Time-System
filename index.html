@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>待ち時間表示システム</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+  :root{
+    --bg:#0f1115;
+    --panel:#1b1e26;
+    --accent:#3aa1ff;
+    --accent2:#ffb13a;
+    --danger:#ff4d4d;
+    --good:#33d17a;
+    --text:#f5f6f8;
+    --sub:#9aa1ad;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0;padding:0;height:100%;
+    background:var(--bg);color:var(--text);
+    font-family:-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;
+    overscroll-behavior:none;
+    user-select:none;
+  }
+  #app{height:100vh;width:100vw;display:flex;flex-direction:column;}
+  .screen{display:none;height:100%;flex-direction:column;}
+  button,input{font-family:inherit;}
+
+  #chooser{align-items:center;justify-content:center;gap:28px;padding:24px;}
+  #chooser h1{font-size:28px;font-weight:600;margin:0 0 8px;}
+  #chooser p{color:var(--sub);margin:0 0 12px;font-size:15px;text-align:center;}
+  .choose-btn{
+    width:280px;padding:22px;border-radius:18px;border:none;
+    font-size:20px;font-weight:600;color:#fff;cursor:pointer;
+  }
+  .choose-btn.display{background:var(--accent);}
+  .choose-btn.control{background:var(--accent2);color:#1b1300;}
+
+  #roomSelect{padding:20px;gap:14px;overflow-y:auto;}
+  .rs-header{display:flex;align-items:center;justify-content:space-between;}
+  .rs-header h2{font-size:20px;margin:0;font-weight:600;}
+  .backLink{background:none;border:none;color:var(--sub);font-size:14px;padding:8px;}
+  #roomListWrap{display:flex;flex-direction:column;gap:10px;}
+  .roomItem{
+    display:flex;justify-content:space-between;align-items:center;
+    background:var(--panel);border-radius:14px;padding:14px 16px;border:none;color:var(--text);
+    font-size:16px;cursor:pointer;text-align:left;
+  }
+  .roomItem .rid{color:var(--sub);font-size:13px;}
+  .roomItem .rmin{font-weight:700;color:var(--accent);}
+  #noRooms{color:var(--sub);font-size:14px;text-align:center;padding:20px 0;}
+  .section{background:var(--panel);border-radius:16px;padding:16px;}
+  .section-title{font-size:13px;color:var(--sub);margin:0 0 12px;font-weight:600;letter-spacing:1px;}
+  .inputRow{display:flex;gap:8px;}
+  .inputRow input{
+    flex:1;padding:14px;border-radius:12px;border:1px solid #333742;
+    background:#262a33;color:var(--text);font-size:16px;
+  }
+  .inputRow input::placeholder{color:var(--sub);}
+  .smallBtn{padding:14px 18px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-weight:700;font-size:15px;cursor:pointer;white-space:nowrap;}
+  #createdIdNotice{font-size:14px;color:var(--good);text-align:center;display:none;}
+
+  #displayView{align-items:center;justify-content:center;text-align:center;padding:20px;position:relative;}
+  #attractionName{font-size:42px;font-weight:700;margin-bottom:6px;word-break:break-word;max-width:90%;}
+  #roomLabel{font-size:30px;color:var(--sub);letter-spacing:2px;margin-bottom:10px;}
+  #statusLabel{font-size:48px;font-weight:700;margin-bottom:30px;}
+  #waitBig{font-size:0;display:flex;align-items:baseline;gap:18px;}
+  #waitNum{font-size:260px;font-weight:800;line-height:1;}
+  #waitUnit{font-size:60px;font-weight:600;color:var(--sub);}
+  #updatedAt{margin-top:36px;font-size:18px;color:var(--sub);}
+  #displayBack{position:absolute;top:16px;left:16px;background:none;border:none;color:var(--sub);font-size:14px;padding:10px;}
+  #displayRoomId{position:absolute;top:16px;right:16px;color:var(--sub);font-size:13px;}
+  #connState{position:absolute;bottom:16px;right:16px;font-size:12px;color:var(--sub);}
+
+  .state-open #statusLabel{color:var(--good);}
+  .state-full #statusLabel{color:var(--danger);}
+  .state-closed #statusLabel{color:var(--sub);}
+
+  #controlView{padding:18px;gap:16px;overflow-y:auto;}
+  .ctrlHeader{display:flex;justify-content:space-between;align-items:center;}
+  .ctrlHeader h2{font-size:20px;margin:0;font-weight:600;}
+  .ctrlHeader .idTag{font-size:12px;color:var(--sub);}
+
+  #nameInput{
+    width:100%;padding:14px;border-radius:12px;border:1px solid #333742;
+    background:#262a33;color:var(--text);font-size:18px;
+  }
+  #nameInput::placeholder{color:var(--sub);}
+
+  .statusRow{display:flex;gap:10px;}
+  .statusBtn{
+    flex:1;padding:16px 8px;border-radius:12px;border:2px solid transparent;
+    background:#262a33;color:var(--text);font-size:16px;font-weight:600;cursor:pointer;
+  }
+  .statusBtn.active.open{background:rgba(51,209,122,0.18);border-color:var(--good);color:var(--good);}
+  .statusBtn.active.full{background:rgba(255,77,77,0.18);border-color:var(--danger);color:var(--danger);}
+  .statusBtn.active.closed{background:rgba(154,161,173,0.18);border-color:var(--sub);color:var(--sub);}
+
+  .presetGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+  .presetBtn{
+    padding:18px 4px;border-radius:12px;border:none;background:#262a33;
+    color:var(--text);font-size:20px;font-weight:700;cursor:pointer;
+  }
+  .presetBtn:active{background:var(--accent);}
+
+  .stepRow{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:6px;}
+  .stepBtn{
+    width:56px;height:56px;border-radius:50%;border:none;background:#262a33;
+    color:var(--text);font-size:22px;font-weight:700;cursor:pointer;
+  }
+  .stepBtn.small{width:46px;height:46px;font-size:18px;}
+  #currentVal{font-size:44px;font-weight:800;min-width:110px;text-align:center;}
+  #currentValUnit{font-size:18px;color:var(--sub);}
+
+  #liveStatus{font-size:13px;color:var(--sub);text-align:center;}
+  #liveStatus.ok{color:var(--good);}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="chooser" class="screen">
+    <h1>待ち時間表示システム</h1>
+    <p>この端末の使い方を選んでください。<br>「表示用」は教室前のiPadに、<br>「操作用」はスタッフが持つ端末に設定します。<br>複数のクラス・複数台で同時に使えます。</p>
+    <button class="choose-btn display" id="goDisplay">表示用として使う</button>
+    <button class="choose-btn control" id="goControl">操作用として使う</button>
+  </div>
+
+  <div id="roomSelect" class="screen">
+    <div class="rs-header">
+      <h2 id="rsTitle">教室を選択</h2>
+      <button class="backLink" id="rsBack">戻る</button>
+    </div>
+
+    <div class="section" id="createSection">
+      <div class="section-title">新しい教室・企画を登録</div>
+      <div class="inputRow">
+        <input id="newRoomName" type="text" placeholder="例：お化け屋敷" maxlength="30">
+        <button class="smallBtn" id="createRoomBtn">登録</button>
+      </div>
+      <div id="createdIdNotice"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">登録済みの教室から選ぶ</div>
+      <div id="roomListWrap"></div>
+      <div id="noRooms">まだ教室が登録されていません</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">教室IDを直接入力して参加</div>
+      <div class="inputRow">
+        <input id="joinIdInput" type="text" placeholder="教室ID（例：A3F9）" maxlength="8">
+        <button class="smallBtn" id="joinIdBtn">参加</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="displayView" class="screen">
+    <button id="displayBack">設定を変更</button>
+    <div id="displayRoomId"></div>
+    <div id="attractionName"></div>
+    <div id="roomLabel">ただいまの待ち時間</div>
+    <div id="statusLabel">受付中</div>
+    <div id="waitBig">
+      <div id="waitNum">0</div>
+      <div id="waitUnit">分</div>
+    </div>
+    <div id="updatedAt"></div>
+    <div id="connState"></div>
+  </div>
+
+  <div id="controlView" class="screen">
+    <div class="ctrlHeader">
+      <h2>待ち時間を操作</h2>
+      <div style="text-align:right;">
+        <div class="idTag" id="ctrlRoomId"></div>
+        <button class="backLink" id="controlBack">教室を変更</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">アトラクション名・企画名</div>
+      <input id="nameInput" type="text" placeholder="例：お化け屋敷 / 脱出ゲーム" maxlength="30">
+    </div>
+
+    <div class="section">
+      <div class="section-title">状態</div>
+      <div class="statusRow">
+        <button class="statusBtn" data-status="open">受付中</button>
+        <button class="statusBtn" data-status="full">満席</button>
+        <button class="statusBtn" data-status="closed">終了</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">待ち時間（分）</div>
+      <div class="presetGrid">
+        <button class="presetBtn" data-min="0">0</button>
+        <button class="presetBtn" data-min="5">5</button>
+        <button class="presetBtn" data-min="10">10</button>
+        <button class="presetBtn" data-min="15">15</button>
+        <button class="presetBtn" data-min="20">20</button>
+        <button class="presetBtn" data-min="30">30</button>
+      </div>
+      <div class="stepRow">
+        <button class="stepBtn" id="minus5">-5</button>
+        <button class="stepBtn small" id="minus1">-1</button>
+        <div>
+          <div id="currentVal">0</div>
+          <div id="currentValUnit" style="text-align:center;">分</div>
+        </div>
+        <button class="stepBtn small" id="plus1">+1</button>
+        <button class="stepBtn" id="plus5">+5</button>
+      </div>
+    </div>
+
+    <div id="liveStatus">変更すると自動で表示画面に反映されます</div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  var firebaseConfig = {
+    apiKey: "AIzaSyDP1yHYEEOJqaJRWz57bJzAZIJFcci6sYw",
+    authDomain: "wait-time-system.firebaseapp.com",
+    databaseURL: "https://wait-time-system-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "wait-time-system",
+    storageBucket: "wait-time-system.firebasestorage.app",
+    messagingSenderId: "573595630966",
+    appId: "1:573595630966:web:796144eaaa79f081294e57"
+  };
+  firebase.initializeApp(firebaseConfig);
+  var db = firebase.database();
+
+  var DEFAULT_STATE = { status:'open', minutes:0, name:'', updatedAt:Date.now() };
+  var EDIT_LOCK_MS = 2500;
+
+  var pendingMinutes = 0;
+  var pendingStatus = 'open';
+  var pendingName = '';
+  var sendTimer = null;
+  var lastLocalEdit = 0;
+  var currentRoomId = null;
+  var pendingMode = null;
+
+  var screens = {
+    chooser: document.getElementById('chooser'),
+    roomSelect: document.getElementById('roomSelect'),
+    displayView: document.getElementById('displayView'),
+    controlView: document.getElementById('controlView')
+  };
+
+  var activeRoomRef = null;
+  var activeRoomListener = null;
+
+  function detachListener(){
+    if(activeRoomRef && activeRoomListener){
+      activeRoomRef.off('value', activeRoomListener);
+    }
+    activeRoomRef = null;
+    activeRoomListener = null;
+  }
+
+  function showScreen(name){
+    Object.keys(screens).forEach(function(k){ screens[k].style.display = (k===name)? 'flex':'none'; });
+    detachListener();
+  }
+
+  function genRoomId(){
+    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    var id='';
+    for(var i=0;i<4;i++){ id += chars[Math.floor(Math.random()*chars.length)]; }
+    return id;
+  }
+
+  /* ---------------- Firebase helpers ---------------- */
+  function getIndex(){
+    return db.ref('roomsIndex').once('value').then(function(snap){
+      var val = snap.val();
+      return val ? Object.keys(val) : [];
+    });
+  }
+  function addToIndex(id){
+    return db.ref('roomsIndex/'+id).set(true);
+  }
+  function getRoomState(id){
+    return db.ref('rooms/'+id).once('value').then(function(snap){
+      return snap.val() || Object.assign({}, DEFAULT_STATE);
+    });
+  }
+  function setRoomState(id, state){
+    return db.ref('rooms/'+id).set(state).then(function(){ return true; }).catch(function(){ return false; });
+  }
+
+  /* ---------------- 起動選択画面 ---------------- */
+  document.getElementById('goDisplay').onclick=function(){ pendingMode='display'; openRoomSelect(); };
+  document.getElementById('goControl').onclick=function(){ pendingMode='control'; openRoomSelect(); };
+  document.getElementById('rsBack').onclick=function(){ showScreen('chooser'); };
+
+  function openRoomSelect(){
+    document.getElementById('rsTitle').textContent = pendingMode==='display' ? '表示する教室を選択' : '操作する教室を選択';
+    document.getElementById('createSection').style.display = pendingMode==='control' ? 'block' : 'none';
+    showScreen('roomSelect');
+    refreshRoomList();
+  }
+
+  function refreshRoomList(){
+    var wrap = document.getElementById('roomListWrap');
+    var noRooms = document.getElementById('noRooms');
+    wrap.innerHTML='';
+    getIndex().then(function(idx){
+      if(idx.length===0){ noRooms.style.display='block'; return; }
+      noRooms.style.display='none';
+      idx.forEach(function(id){
+        getRoomState(id).then(function(state){
+          var btn = document.createElement('button');
+          btn.className='roomItem';
+          var label = state.name ? state.name : '(名称未設定)';
+          var minText = state.status==='open' ? (state.minutes+'分') : (state.status==='full'?'満席':'終了');
+          btn.innerHTML = '<span>'+label+'<br><span class="rid">ID: '+id+'</span></span><span class="rmin">'+minText+'</span>';
+          btn.onclick = function(){ selectRoom(id); };
+          wrap.appendChild(btn);
+        });
+      });
+    });
+  }
+
+  document.getElementById('createRoomBtn').onclick = function(){
+    var name = document.getElementById('newRoomName').value.trim();
+    var id = genRoomId();
+    var state = { status:'open', minutes:0, name:name, updatedAt:Date.now() };
+    setRoomState(id, state).then(function(){
+      return addToIndex(id);
+    }).then(function(){
+      document.getElementById('newRoomName').value='';
+      var notice = document.getElementById('createdIdNotice');
+      notice.style.display='block';
+      notice.textContent = '登録しました（教室ID: '+id+'）この画面のまま操作画面に移動します';
+      setTimeout(function(){ selectRoom(id); }, 700);
+    });
+  };
+
+  document.getElementById('joinIdBtn').onclick = function(){
+    var raw = document.getElementById('joinIdInput').value.trim().toUpperCase();
+    if(!raw) return;
+    addToIndex(raw).then(function(){ selectRoom(raw); });
+  };
+
+  function selectRoom(id){
+    currentRoomId = id;
+    try{
+      window.localStorage.setItem('wait-app-mode', pendingMode);
+      window.localStorage.setItem('wait-app-roomid', id);
+    }catch(e){}
+    if(pendingMode==='display'){ enterDisplay(id); }
+    else { enterControl(id); }
+  }
+
+  /* ---------------- 表示用画面 ---------------- */
+  var statusLabelMap = { open:'受付中', full:'満席です', closed:'本日終了' };
+  var displayBox = document.getElementById('displayView');
+  var attractionName = document.getElementById('attractionName');
+  var statusLabel = document.getElementById('statusLabel');
+  var waitNum = document.getElementById('waitNum');
+  var updatedAt = document.getElementById('updatedAt');
+  var connState = document.getElementById('connState');
+
+  function renderDisplay(state){
+    displayBox.classList.remove('state-open','state-full','state-closed');
+    displayBox.classList.add('state-'+state.status);
+    attractionName.textContent = state.name || '';
+    attractionName.style.display = state.name ? 'block' : 'none';
+    statusLabel.textContent = statusLabelMap[state.status] || '受付中';
+    if(state.status==='open'){
+      waitNum.parentElement.style.display='flex';
+      waitNum.textContent = state.minutes;
+    } else {
+      waitNum.parentElement.style.display='none';
+    }
+    if(state.updatedAt){
+      var d = new Date(state.updatedAt);
+      var hh = String(d.getHours()).padStart(2,'0');
+      var mm = String(d.getMinutes()).padStart(2,'0');
+      updatedAt.textContent = '最終更新 ' + hh + ':' + mm;
+    }
+    connState.textContent = '接続中・リアルタイム更新';
+  }
+
+  function enterDisplay(id){
+    document.getElementById('displayRoomId').textContent = 'ID: '+id;
+    showScreen('displayView');
+    connState.textContent = '接続中…';
+    activeRoomRef = db.ref('rooms/'+id);
+    activeRoomListener = function(snap){
+      renderDisplay(snap.val() || DEFAULT_STATE);
+    };
+    activeRoomRef.on('value', activeRoomListener);
+  }
+
+  document.getElementById('displayBack').onclick=function(){
+    try{ window.localStorage.removeItem('wait-app-mode'); window.localStorage.removeItem('wait-app-roomid'); }catch(e){}
+    showScreen('chooser');
+  };
+
+  /* ---------------- 操作用画面 ---------------- */
+  var currentVal = document.getElementById('currentVal');
+  var statusButtons = document.querySelectorAll('.statusBtn');
+  var presetButtons = document.querySelectorAll('.presetBtn');
+  var liveStatus = document.getElementById('liveStatus');
+  var nameInput = document.getElementById('nameInput');
+
+  function setActiveStatusButton(){
+    statusButtons.forEach(function(btn){
+      btn.classList.remove('active','open','full','closed');
+      if(btn.dataset.status===pendingStatus){
+        btn.classList.add('active', pendingStatus);
+      }
+    });
+  }
+
+  function scheduleSend(){
+    lastLocalEdit = Date.now();
+    liveStatus.textContent = '反映中…';
+    liveStatus.classList.remove('ok');
+    if(sendTimer) clearTimeout(sendTimer);
+    sendTimer = setTimeout(sendState, 300);
+  }
+
+  function sendState(){
+    if(!currentRoomId) return;
+    var newState = { status: pendingStatus, minutes: pendingMinutes, name: pendingName, updatedAt: Date.now() };
+    setRoomState(currentRoomId, newState).then(function(ok){
+      if(ok){
+        liveStatus.textContent = '自動反映済み（' + new Date().toLocaleTimeString('ja-JP') + '）';
+        liveStatus.classList.add('ok');
+      } else {
+        liveStatus.textContent = '反映に失敗しました。通信状況を確認してください。';
+        liveStatus.classList.remove('ok');
+      }
+    });
+  }
+
+  statusButtons.forEach(function(btn){
+    btn.onclick = function(){
+      pendingStatus = btn.dataset.status;
+      setActiveStatusButton();
+      scheduleSend();
+    };
+  });
+
+  presetButtons.forEach(function(btn){
+    btn.onclick = function(){
+      pendingMinutes = parseInt(btn.dataset.min,10);
+      currentVal.textContent = pendingMinutes;
+      scheduleSend();
+    };
+  });
+
+  document.getElementById('minus5').onclick = function(){
+    pendingMinutes = Math.max(0, pendingMinutes-5);
+    currentVal.textContent = pendingMinutes;
+    scheduleSend();
+  };
+  document.getElementById('plus5').onclick = function(){
+    pendingMinutes = pendingMinutes+5;
+    currentVal.textContent = pendingMinutes;
+    scheduleSend();
+  };
+  document.getElementById('minus1').onclick = function(){
+    pendingMinutes = Math.max(0, pendingMinutes-1);
+    currentVal.textContent = pendingMinutes;
+    scheduleSend();
+  };
+  document.getElementById('plus1').onclick = function(){
+    pendingMinutes = pendingMinutes+1;
+    currentVal.textContent = pendingMinutes;
+    scheduleSend();
+  };
+
+  nameInput.addEventListener('input', function(){
+    pendingName = nameInput.value;
+    scheduleSend();
+  });
+
+  document.getElementById('controlBack').onclick=function(){
+    try{ window.localStorage.removeItem('wait-app-mode'); window.localStorage.removeItem('wait-app-roomid'); }catch(e){}
+    showScreen('chooser');
+  };
+
+  function applyStateToControlUI(state){
+    pendingStatus = state.status || 'open';
+    pendingMinutes = state.minutes || 0;
+    pendingName = state.name || '';
+    currentVal.textContent = pendingMinutes;
+    nameInput.value = pendingName;
+    setActiveStatusButton();
+  }
+
+  function enterControl(id){
+    document.getElementById('ctrlRoomId').textContent = '教室ID: '+id;
+    showScreen('controlView');
+    activeRoomRef = db.ref('rooms/'+id);
+    activeRoomListener = function(snap){
+      if(Date.now() - lastLocalEdit < EDIT_LOCK_MS) return;
+      applyStateToControlUI(snap.val() || DEFAULT_STATE);
+    };
+    activeRoomRef.on('value', activeRoomListener);
+  }
+
+  /* ---------------- 起動時の状態復元 ---------------- */
+  showScreen('chooser');
+  try{
+    var savedMode = window.localStorage.getItem('wait-app-mode');
+    var savedRoom = window.localStorage.getItem('wait-app-roomid');
+    if(savedMode && savedRoom){
+      pendingMode = savedMode;
+      currentRoomId = savedRoom;
+      if(savedMode==='display'){ enterDisplay(savedRoom); }
+      else { enterControl(savedRoom); }
+    }
+  }catch(e){}
+
+})();
+</script>
+</body>
+</html>
