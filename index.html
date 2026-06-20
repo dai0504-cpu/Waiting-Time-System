@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>待ち時間表示システム</title>
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<meta name="apple-mobile-web-app-title" content="待ち時間">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f1115">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <style>
@@ -361,7 +367,12 @@
           delBtn.textContent='🗑';
           delBtn.onclick = function(ev){
             ev.stopPropagation();
-            var ok = window.confirm('「'+label+'」（ID: '+id+'）を削除しますか？\nこの操作は取り消せません。');
+            var ok = window.confirm(
+              '本当に削除しますか？\n\n' +
+              '教室名：' + label + '\n' +
+              '教室ID：' + id + '\n\n' +
+              'この操作は取り消せません。'
+            );
             if(ok){
               Promise.all([removeRoom(id), removeFromIndex(id)]).then(refreshRoomList);
             }
