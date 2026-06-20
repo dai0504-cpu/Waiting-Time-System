@@ -4,9 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>待ち時間表示システム</title>
-<link rel="apple-touch-icon" href="icon.png">
-<link rel="icon" href="icon.png">
-<meta name="apple-mobile-web-app-title" content="待ち時間">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icon-167.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icon-152.png">
+<link rel="apple-touch-icon" sizes="120x120" href="icon-120.png">
+<link rel="icon" href="icon-1024.png">
+<meta name="apple-mobile-web-app-title" content="待ち時間表示システム">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0f1115">
@@ -87,7 +90,9 @@
   #connState{position:absolute;bottom:16px;right:16px;font-size:12px;color:var(--sub);}
 
   .state-open #statusLabel{color:var(--good);}
+  .state-prep #statusLabel{color:var(--accent2);}
   .state-full #statusLabel{color:var(--danger);}
+  .state-paused #statusLabel{color:var(--accent2);}
   .state-closed #statusLabel{color:var(--sub);}
 
   #controlView{padding:18px;gap:16px;overflow-y:auto;}
@@ -101,13 +106,15 @@
   }
   #nameInput::placeholder{color:var(--sub);}
 
-  .statusRow{display:flex;gap:10px;}
+  .statusRow{display:flex;flex-wrap:wrap;gap:10px;}
   .statusBtn{
-    flex:1;padding:16px 8px;border-radius:12px;border:2px solid transparent;
+    flex:1 1 30%;padding:16px 8px;border-radius:12px;border:2px solid transparent;
     background:#262a33;color:var(--text);font-size:16px;font-weight:600;cursor:pointer;
   }
   .statusBtn.active.open{background:rgba(51,209,122,0.18);border-color:var(--good);color:var(--good);}
+  .statusBtn.active.prep{background:rgba(255,177,58,0.18);border-color:var(--accent2);color:var(--accent2);}
   .statusBtn.active.full{background:rgba(255,77,77,0.18);border-color:var(--danger);color:var(--danger);}
+  .statusBtn.active.paused{background:rgba(255,177,58,0.18);border-color:var(--accent2);color:var(--accent2);}
   .statusBtn.active.closed{background:rgba(154,161,173,0.18);border-color:var(--sub);color:var(--sub);}
 
   .presetGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
@@ -201,7 +208,9 @@
     <div class="section">
       <div class="section-title">状態</div>
       <div class="statusRow">
+        <button class="statusBtn" data-status="prep">準備中</button>
         <button class="statusBtn" data-status="open">受付中</button>
+        <button class="statusBtn" data-status="paused">休止中</button>
         <button class="statusBtn" data-status="full">満席</button>
         <button class="statusBtn" data-status="closed">終了</button>
       </div>
@@ -349,7 +358,8 @@
 
           var minSpan = document.createElement('span');
           minSpan.className='rmin';
-          minSpan.textContent = state.status==='open' ? (state.minutes+'分') : (state.status==='full'?'満席':'終了');
+          var roomListLabelMap = { prep:'準備中', open:state.minutes+'分', paused:'休止中', full:'満席', closed:'終了' };
+          minSpan.textContent = roomListLabelMap[state.status] !== undefined ? roomListLabelMap[state.status] : (state.minutes+'分');
 
           var editBtn = document.createElement('button');
           editBtn.className='iconBtn edit';
@@ -420,24 +430,27 @@
   }
 
   /* ---------------- 表示用画面 ---------------- */
-  var statusLabelMap = { open:'受付中', full:'満席です', closed:'本日終了' };
+  var statusLabelMap = { prep:'準備中', open:'受付中', paused:'休止中', full:'満席です', closed:'本日終了' };
   var displayBox = document.getElementById('displayView');
   var attractionName = document.getElementById('attractionName');
   var statusLabel = document.getElementById('statusLabel');
+  var roomLabel = document.getElementById('roomLabel');
   var waitNum = document.getElementById('waitNum');
   var updatedAt = document.getElementById('updatedAt');
   var connState = document.getElementById('connState');
 
   function renderDisplay(state){
-    displayBox.classList.remove('state-open','state-full','state-closed');
+    displayBox.classList.remove('state-open','state-prep','state-full','state-paused','state-closed');
     displayBox.classList.add('state-'+state.status);
     attractionName.textContent = state.name || '';
     attractionName.style.display = state.name ? 'block' : 'none';
     statusLabel.textContent = statusLabelMap[state.status] || '受付中';
     if(state.status==='open'){
+      roomLabel.style.display='block';
       waitNum.parentElement.style.display='flex';
       waitNum.textContent = state.minutes;
     } else {
+      roomLabel.style.display='none';
       waitNum.parentElement.style.display='none';
     }
     if(state.updatedAt){
