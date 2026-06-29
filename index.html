@@ -15,7 +15,6 @@
 <meta name="theme-color" content="#0f1115">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
   :root{
     --bg:#0f1115;
@@ -169,16 +168,17 @@
     background:#262a33;color:var(--text);font-size:15px;font-weight:600;cursor:pointer;
   }
   .codeBig{
-    font-size:30px;font-weight:800;letter-spacing:3px;text-align:center;
+    font-size:28px;font-weight:800;letter-spacing:3px;text-align:center;
     background:#262a33;border-radius:12px;padding:14px;margin-bottom:14px;word-break:break-all;
   }
   .qrWrap{display:flex;justify-content:center;margin-bottom:14px;}
-  .qrWrap canvas{border-radius:12px;background:#fff;padding:8px;}
-  .shareBtnsRow{display:flex;gap:8px;}
+  .qrWrap img{border-radius:12px;background:#fff;padding:8px;width:200px;height:200px;}
+  .shareBtnsRow{display:flex;gap:8px;flex-wrap:wrap;}
   .shareBtnsRow button{
     flex:1;padding:13px;border-radius:10px;border:none;background:var(--accent);
     color:#fff;font-weight:700;font-size:14px;cursor:pointer;
   }
+  .shareBtnsRow button.native{background:var(--good);}
   .copiedTip{font-size:12px;color:var(--good);text-align:center;margin-top:8px;display:none;}
 
   .changeItem{border-bottom:1px solid #2a2e38;padding:12px 0;}
@@ -389,9 +389,9 @@
   <div class="modalBox">
     <h3 id="shareModalTitle">共有</h3>
     <div class="codeBig" id="shareCodeText">------</div>
-    <div class="qrWrap"><canvas id="shareQrCanvas"></canvas></div>
+    <div class="qrWrap"><img id="shareQrImg" src="" alt="QR"></div>
     <div class="shareBtnsRow">
-      <button id="copyCodeBtn">コードをコピー</button>
+      <button class="native" id="nativeShareBtn">📤 共有</button>
       <button id="copyUrlBtn">URLをコピー</button>
     </div>
     <div class="copiedTip" id="copiedTip">コピーしました</div>
@@ -540,16 +540,18 @@
     var qs = Object.keys(params).map(function(k){ return k+'='+encodeURIComponent(params[k]); }).join('&');
     return base + '?' + qs;
   }
+  var currentShareUrl = '';
+  var currentShareTitle = '';
+
   function openShareModal(title, code, url){
+    currentShareUrl = url;
+    currentShareTitle = title;
     document.getElementById('shareModalTitle').textContent = title;
     document.getElementById('shareCodeText').textContent = code;
     document.getElementById('copiedTip').style.display='none';
-    var canvas = document.getElementById('shareQrCanvas');
-    if(window.QRCode){
-      QRCode.toCanvas(canvas, url, { width:200, margin:1 }, function(){});
-    }
-    document.getElementById('copyCodeBtn').onclick = function(){ copyToClipboard(code); };
-    document.getElementById('copyUrlBtn').onclick = function(){ copyToClipboard(url); };
+    // Google Charts APIでQRを画像として取得（ライブラリ不要・Safari確実対応）
+    var qrUrl = 'https://chart.googleapis.com/chart?cht=qr&chs=200x200&chld=M|1&chl=' + encodeURIComponent(url);
+    document.getElementById('shareQrImg').src = qrUrl;
     document.getElementById('shareModal').style.display='flex';
   }
   function copyToClipboard(text){
@@ -568,6 +570,15 @@
     document.body.removeChild(ta);
     cb();
   }
+  document.getElementById('nativeShareBtn').onclick = function(){
+    if(navigator.share){
+      navigator.share({ title: currentShareTitle, url: currentShareUrl })
+        .catch(function(){});
+    } else {
+      copyToClipboard(currentShareUrl);
+    }
+  };
+  document.getElementById('copyUrlBtn').onclick = function(){ copyToClipboard(currentShareUrl); };
   document.getElementById('closeShareModal').onclick = function(){ document.getElementById('shareModal').style.display='none'; };
 
   document.getElementById('shareSchoolBtn').onclick = function(){
