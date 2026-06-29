@@ -15,6 +15,7 @@
 <meta name="theme-color" content="#0f1115">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
   :root{
     --bg:#0f1115;
@@ -38,36 +39,26 @@
   .screen{display:none;height:100%;flex-direction:column;}
   button,input{font-family:inherit;}
 
-  #chooser{align-items:center;justify-content:center;gap:28px;padding:24px;}
-  #chooser h1{font-size:28px;font-weight:600;margin:0 0 8px;}
-  #chooser p{color:var(--sub);margin:0 0 12px;font-size:15px;text-align:center;}
-  .choose-btn{
-    width:280px;padding:22px;border-radius:18px;border:none;
-    font-size:20px;font-weight:600;color:#fff;cursor:pointer;
+  /* ---------- 共通の上部バー ---------- */
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 0;gap:10px;}
+  .topbar .titleArea{flex:1;min-width:0;}
+  .topbar h1,.topbar h2{font-size:20px;margin:0;font-weight:600;}
+  .topbar .subText{font-size:12px;color:var(--sub);margin-top:2px;}
+  .iconRow{display:flex;gap:8px;flex-shrink:0;}
+  .roundIconBtn{
+    width:40px;height:40px;border-radius:50%;border:none;background:var(--panel);
+    color:var(--text);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;
   }
-  .choose-btn.display{background:var(--accent);}
-  .choose-btn.control{background:var(--accent2);color:#1b1300;}
-
-  #roomSelect{padding:20px;gap:14px;overflow-y:auto;}
-  .rs-header{display:flex;align-items:center;justify-content:space-between;}
-  .rs-header h2{font-size:20px;margin:0;font-weight:600;}
+  .roundIconBtn .dot{
+    position:absolute;top:4px;right:4px;width:9px;height:9px;border-radius:50%;background:var(--danger);
+    border:2px solid var(--bg);
+  }
   .backLink{background:none;border:none;color:var(--sub);font-size:14px;padding:8px;}
-  #roomListWrap{display:flex;flex-direction:column;gap:10px;}
-  .roomItem{
-    display:flex;justify-content:space-between;align-items:center;gap:8px;
-    background:var(--panel);border-radius:14px;padding:14px 16px;
-    font-size:16px;
-  }
-  .roomItemMain{flex:1;border:none;background:none;color:var(--text);font-size:16px;text-align:left;cursor:pointer;padding:0;}
-  .roomItem .rid{color:var(--sub);font-size:13px;}
-  .roomItem .rmin{font-weight:700;color:var(--accent);margin-right:6px;white-space:nowrap;}
-  .iconBtn{background:none;border:none;font-size:15px;padding:8px;border-radius:8px;cursor:pointer;flex-shrink:0;}
-  .iconBtn.edit{color:var(--sub);}
-  .iconBtn.del{color:var(--danger);}
-  .iconBtn:active{background:rgba(255,255,255,0.08);}
-  #noRooms{color:var(--sub);font-size:14px;text-align:center;padding:20px 0;}
+  .bodyScroll{padding:18px;gap:14px;overflow-y:auto;flex:1;display:flex;flex-direction:column;}
+
   .section{background:var(--panel);border-radius:16px;padding:16px;}
   .section-title{font-size:13px;color:var(--sub);margin:0 0 12px;font-weight:600;letter-spacing:1px;}
+  .hintText{font-size:12px;color:var(--sub);margin-top:8px;line-height:1.5;}
   .inputRow{display:flex;gap:8px;}
   .inputRow input{
     flex:1;padding:14px;border-radius:12px;border:1px solid #333742;
@@ -75,12 +66,38 @@
   }
   .inputRow input::placeholder{color:var(--sub);}
   .smallBtn{padding:14px 18px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-weight:700;font-size:15px;cursor:pointer;white-space:nowrap;}
-  #createdIdNotice{font-size:14px;color:var(--good);text-align:center;display:none;}
+  .errorText{font-size:13px;color:var(--danger);text-align:center;display:none;margin-top:4px;}
 
+  .roomItem{
+    display:flex;justify-content:space-between;align-items:center;gap:6px;
+    background:#21242d;border-radius:14px;padding:14px 16px;font-size:16px;
+  }
+  .roomItemMain{flex:1;min-width:0;border:none;background:none;color:var(--text);font-size:16px;text-align:left;cursor:pointer;padding:0;}
+  .roomItem .rid{color:var(--sub);font-size:13px;}
+  .roomItem .rmin{font-weight:700;color:var(--accent);margin-right:2px;white-space:nowrap;font-size:14px;}
+  .iconBtn{background:none;border:none;font-size:15px;padding:8px;border-radius:8px;cursor:pointer;flex-shrink:0;}
+  .iconBtn.edit{color:var(--sub);}
+  .iconBtn.del{color:var(--danger);}
+  .iconBtn.share{color:var(--accent);}
+  .iconBtn:active{background:rgba(255,255,255,0.08);}
+  #noRooms, #noHistory{color:var(--sub);font-size:14px;text-align:center;padding:14px 0;}
+
+  /* ---------- 選択画面の大ボタン ---------- */
+  #chooser .bodyScroll{align-items:center;justify-content:center;gap:24px;}
+  .choose-btn{
+    width:280px;padding:22px;border-radius:18px;border:none;
+    font-size:20px;font-weight:600;color:#fff;cursor:pointer;
+  }
+  .choose-btn.display{background:var(--accent);}
+  .choose-btn.control{background:var(--accent2);color:#1b1300;}
+  #chooser p.desc{color:var(--sub);margin:0;font-size:14px;text-align:center;max-width:320px;}
+
+  /* ---------- 表示用画面 ---------- */
   #displayView{align-items:center;justify-content:center;text-align:center;padding:20px;position:relative;}
   #attractionName{font-size:42px;font-weight:700;margin-bottom:6px;word-break:break-word;max-width:90%;}
   #roomLabel{font-size:30px;color:var(--sub);letter-spacing:2px;margin-bottom:10px;}
-  #statusLabel{font-size:48px;font-weight:700;margin-bottom:30px;}
+  #statusLabel{font-size:48px;font-weight:700;margin-bottom:10px;}
+  #resumeAtLabel{font-size:22px;color:var(--sub);margin-bottom:20px;display:none;}
   #waitBig{font-size:0;display:flex;align-items:baseline;gap:18px;}
   #waitNum{font-size:260px;font-weight:800;line-height:1;}
   #waitUnit{font-size:60px;font-weight:600;color:var(--sub);}
@@ -95,11 +112,7 @@
   .state-paused #statusLabel{color:var(--accent2);}
   .state-closed #statusLabel{color:var(--sub);}
 
-  #controlView{padding:18px;gap:16px;overflow-y:auto;}
-  .ctrlHeader{display:flex;justify-content:space-between;align-items:center;}
-  .ctrlHeader h2{font-size:20px;margin:0;font-weight:600;}
-  .ctrlHeader .idTag{font-size:12px;color:var(--sub);}
-
+  /* ---------- 操作用画面 ---------- */
   #nameInput{
     width:100%;padding:14px;border-radius:12px;border:1px solid #333742;
     background:#262a33;color:var(--text);font-size:18px;
@@ -116,6 +129,11 @@
   .statusBtn.active.full{background:rgba(255,77,77,0.18);border-color:var(--danger);color:var(--danger);}
   .statusBtn.active.paused{background:rgba(255,177,58,0.18);border-color:var(--accent2);color:var(--accent2);}
   .statusBtn.active.closed{background:rgba(154,161,173,0.18);border-color:var(--sub);color:var(--sub);}
+
+  #pauseTimeSection{display:none;margin-top:12px;}
+  #pauseTimeSection input[type=time]{
+    padding:12px;border-radius:10px;border:1px solid #333742;background:#262a33;color:var(--text);font-size:16px;
+  }
 
   .presetGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
   .presetBtn{
@@ -135,54 +153,152 @@
 
   #liveStatus{font-size:13px;color:var(--sub);text-align:center;}
   #liveStatus.ok{color:var(--good);}
+
+  /* ---------- モーダル共通 ---------- */
+  .modalOverlay{
+    display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);
+    align-items:center;justify-content:center;z-index:50;padding:24px;
+  }
+  .modalBox{
+    background:var(--panel);border-radius:18px;padding:22px;max-width:360px;width:100%;
+    max-height:80vh;overflow-y:auto;
+  }
+  .modalBox h3{margin:0 0 14px;font-size:18px;}
+  .modalClose{
+    margin-top:16px;width:100%;padding:14px;border-radius:12px;border:none;
+    background:#262a33;color:var(--text);font-size:15px;font-weight:600;cursor:pointer;
+  }
+  .codeBig{
+    font-size:30px;font-weight:800;letter-spacing:3px;text-align:center;
+    background:#262a33;border-radius:12px;padding:14px;margin-bottom:14px;word-break:break-all;
+  }
+  .qrWrap{display:flex;justify-content:center;margin-bottom:14px;}
+  .qrWrap canvas{border-radius:12px;background:#fff;padding:8px;}
+  .shareBtnsRow{display:flex;gap:8px;}
+  .shareBtnsRow button{
+    flex:1;padding:13px;border-radius:10px;border:none;background:var(--accent);
+    color:#fff;font-weight:700;font-size:14px;cursor:pointer;
+  }
+  .copiedTip{font-size:12px;color:var(--good);text-align:center;margin-top:8px;display:none;}
+
+  .changeItem{border-bottom:1px solid #2a2e38;padding:12px 0;}
+  .changeItem:last-child{border-bottom:none;}
+  .changeItem .ctitle{font-weight:700;font-size:15px;margin-bottom:4px;}
+  .changeItem .cdate{font-size:12px;color:var(--sub);margin-bottom:6px;}
+  .changeItem .cdetail{font-size:13px;color:#c7cad1;line-height:1.5;}
+
+  .nameWithCaption{display:flex;flex-direction:column;}
+  .formField{margin-bottom:12px;}
+  .formField label{font-size:12px;color:var(--sub);display:block;margin-bottom:6px;}
+  .formField input{
+    width:100%;padding:13px;border-radius:10px;border:1px solid #333742;
+    background:#262a33;color:var(--text);font-size:16px;
+  }
 </style>
 </head>
 <body>
 <div id="app">
 
+  <!-- 学校・団体コード入力画面 -->
+  <div id="schoolGate" class="screen">
+    <div class="topbar">
+      <div class="titleArea"><h2>学校・団体コードを入力</h2></div>
+      <div class="iconRow">
+        <button class="roundIconBtn" id="bellBtnGate">🔔</button>
+        <button class="roundIconBtn" id="newSchoolBtn">＋</button>
+      </div>
+    </div>
+    <div class="bodyScroll">
+      <div class="section">
+        <div class="section-title">コードを入力して参加</div>
+        <div class="inputRow">
+          <input id="schoolCodeInput" type="text" placeholder="学校・団体コード（6桁）" maxlength="8">
+          <button class="smallBtn" id="schoolJoinBtn">参加</button>
+        </div>
+        <div class="errorText" id="schoolJoinError">そのコードの学校・団体が見つかりません</div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">この端末で過去に使った学校・団体</div>
+        <div id="historyListWrap"></div>
+        <div id="noHistory">まだ履歴がありません</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 起動選択画面 -->
   <div id="chooser" class="screen">
-    <h1>待ち時間表示システム</h1>
-    <p>この端末の使い方を選んでください。<br>「表示用」は教室前のiPadに、<br>「操作用」はスタッフが持つ端末に設定します。<br>複数のクラス・複数台で同時に使えます。</p>
-    <button class="choose-btn display" id="goDisplay">表示用として使う</button>
-    <button class="choose-btn control" id="goControl">操作用として使う</button>
+    <div class="topbar">
+      <div class="titleArea">
+        <h2 id="chooserSchoolName">学校名</h2>
+        <div class="subText" id="chooserSchoolSub">コード: ------ ・ <a href="#" id="changeSchoolLink" style="color:var(--sub);">学校を変更</a></div>
+      </div>
+      <div class="iconRow">
+        <button class="roundIconBtn" id="bellBtnChooser">🔔</button>
+        <button class="roundIconBtn" id="shareSchoolBtn">📤</button>
+      </div>
+    </div>
+    <div class="bodyScroll">
+      <p class="desc">この端末の使い方を選んでください。複数のクラス・複数台で同時に使えます。</p>
+      <button class="choose-btn display" id="goDisplay">表示用として使う</button>
+      <button class="choose-btn control" id="goControl">操作用として使う</button>
+    </div>
   </div>
 
+  <!-- 教室選択画面 -->
   <div id="roomSelect" class="screen">
-    <div class="rs-header">
-      <h2 id="rsTitle">教室を選択</h2>
-      <button class="backLink" id="rsBack">戻る</button>
-    </div>
-
-    <div class="section" id="createSection">
-      <div class="section-title">新しい教室・企画を登録</div>
-      <div class="inputRow">
-        <input id="newRoomName" type="text" placeholder="例：お化け屋敷" maxlength="30">
-        <button class="smallBtn" id="createRoomBtn">登録</button>
+    <div class="topbar">
+      <div class="titleArea"><h2 id="rsTitle">教室を選択</h2></div>
+      <div class="iconRow">
+        <button class="roundIconBtn" id="bellBtnRoomSelect">🔔</button>
+        <button class="backLink" id="rsBack">戻る</button>
       </div>
-      <div id="createdIdNotice"></div>
     </div>
+    <div class="bodyScroll">
 
-    <div class="section">
-      <div class="section-title">登録済みの教室から選ぶ</div>
-      <div id="roomListWrap"></div>
-      <div id="noRooms">まだ教室が登録されていません</div>
-    </div>
+      <div class="section" id="createSection">
+        <div class="section-title">新しい教室・企画を登録</div>
+        <div class="formField">
+          <label>アトラクション名・企画名</label>
+          <input id="newRoomName" type="text" placeholder="例：お化け屋敷" maxlength="30">
+        </div>
+        <div class="formField">
+          <label>教室ID（任意・空欄なら自動発行）</label>
+          <input id="newRoomId" type="text" placeholder="例：2026-2-3" maxlength="20">
+        </div>
+        <div class="hintText">
+          ID形式の例：<b>年-学年-組</b>（同じ組で複数のアトラクションがある場合は末尾に番号、例：<b>2026-2-3-1</b>）
+        </div>
+        <div class="inputRow" style="margin-top:12px;">
+          <button class="smallBtn" id="createRoomBtn" style="width:100%;">登録</button>
+        </div>
+        <div id="createdIdNotice" class="hintText" style="color:var(--good);display:none;"></div>
+      </div>
 
-    <div class="section">
-      <div class="section-title">教室IDを直接入力して参加</div>
-      <div class="inputRow">
-        <input id="joinIdInput" type="text" placeholder="教室ID（例：A3F9）" maxlength="8">
-        <button class="smallBtn" id="joinIdBtn">参加</button>
+      <div class="section">
+        <div class="section-title">登録済みの教室から選ぶ</div>
+        <div id="roomListWrap"></div>
+        <div id="noRooms">まだ教室が登録されていません</div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">教室IDを直接入力して参加</div>
+        <div class="inputRow">
+          <input id="joinIdInput" type="text" placeholder="教室ID（例：2026-2-3）" maxlength="20">
+          <button class="smallBtn" id="joinIdBtn">参加</button>
+        </div>
       </div>
     </div>
   </div>
 
+  <!-- 表示用画面（教室前） -->
   <div id="displayView" class="screen">
     <button id="displayBack">設定を変更</button>
     <div id="displayRoomId"></div>
     <div id="attractionName"></div>
     <div id="roomLabel">ただいまの待ち時間</div>
     <div id="statusLabel">受付中</div>
+    <div id="resumeAtLabel"></div>
     <div id="waitBig">
       <div id="waitNum">0</div>
       <div id="waitUnit">分</div>
@@ -191,56 +307,105 @@
     <div id="connState"></div>
   </div>
 
+  <!-- 操作用画面（スタッフ） -->
   <div id="controlView" class="screen">
-    <div class="ctrlHeader">
-      <h2>待ち時間を操作</h2>
-      <div style="text-align:right;">
-        <div class="idTag" id="ctrlRoomId"></div>
-        <button class="backLink" id="controlBack">教室を変更</button>
+    <div class="topbar">
+      <div class="titleArea">
+        <h2>待ち時間を操作</h2>
+        <div class="subText" id="ctrlRoomId"></div>
+      </div>
+      <div class="iconRow">
+        <button class="roundIconBtn" id="bellBtnControl">🔔</button>
+        <button class="roundIconBtn" id="shareRoomBtn">📤</button>
+        <button class="backLink" id="controlBackBtn">教室を変更</button>
       </div>
     </div>
+    <div class="bodyScroll">
 
-    <div class="section">
-      <div class="section-title">アトラクション名・企画名</div>
-      <input id="nameInput" type="text" placeholder="例：お化け屋敷 / 脱出ゲーム" maxlength="30">
-    </div>
-
-    <div class="section">
-      <div class="section-title">状態</div>
-      <div class="statusRow">
-        <button class="statusBtn" data-status="prep">準備中</button>
-        <button class="statusBtn" data-status="open">受付中</button>
-        <button class="statusBtn" data-status="paused">休止中</button>
-        <button class="statusBtn" data-status="full">満席</button>
-        <button class="statusBtn" data-status="closed">終了</button>
+      <div class="section">
+        <div class="section-title">アトラクション名・企画名</div>
+        <input id="nameInput" type="text" placeholder="例：お化け屋敷 / 脱出ゲーム" maxlength="30">
       </div>
-    </div>
 
-    <div class="section">
-      <div class="section-title">待ち時間（分）</div>
-      <div class="presetGrid">
-        <button class="presetBtn" data-min="0">0</button>
-        <button class="presetBtn" data-min="5">5</button>
-        <button class="presetBtn" data-min="10">10</button>
-        <button class="presetBtn" data-min="15">15</button>
-        <button class="presetBtn" data-min="20">20</button>
-        <button class="presetBtn" data-min="30">30</button>
-      </div>
-      <div class="stepRow">
-        <button class="stepBtn" id="minus5">-5</button>
-        <button class="stepBtn small" id="minus1">-1</button>
-        <div>
-          <div id="currentVal">0</div>
-          <div id="currentValUnit" style="text-align:center;">分</div>
+      <div class="section">
+        <div class="section-title">状態</div>
+        <div class="statusRow">
+          <button class="statusBtn" data-status="prep">準備中</button>
+          <button class="statusBtn" data-status="open">受付中</button>
+          <button class="statusBtn" data-status="paused">休止中</button>
+          <button class="statusBtn" data-status="full">満席</button>
+          <button class="statusBtn" data-status="closed">終了</button>
         </div>
-        <button class="stepBtn small" id="plus1">+1</button>
-        <button class="stepBtn" id="plus5">+5</button>
+        <div id="pauseTimeSection">
+          <div class="hintText" style="margin-top:0;margin-bottom:8px;">開始予定時刻（任意）</div>
+          <input type="time" id="resumeInput">
+        </div>
       </div>
-    </div>
 
-    <div id="liveStatus">変更すると自動で表示画面に反映されます</div>
+      <div class="section">
+        <div class="section-title">待ち時間（分）</div>
+        <div class="presetGrid">
+          <button class="presetBtn" data-min="0">0</button>
+          <button class="presetBtn" data-min="5">5</button>
+          <button class="presetBtn" data-min="10">10</button>
+          <button class="presetBtn" data-min="15">15</button>
+          <button class="presetBtn" data-min="20">20</button>
+          <button class="presetBtn" data-min="30">30</button>
+        </div>
+        <div class="stepRow">
+          <button class="stepBtn" id="minus5">-5</button>
+          <button class="stepBtn small" id="minus1">-1</button>
+          <div>
+            <div id="currentVal">0</div>
+            <div id="currentValUnit" style="text-align:center;">分</div>
+          </div>
+          <button class="stepBtn small" id="plus1">+1</button>
+          <button class="stepBtn" id="plus5">+5</button>
+        </div>
+      </div>
+
+      <div id="liveStatus">変更すると自動で表示画面に反映されます</div>
+    </div>
   </div>
 
+</div>
+
+<!-- 新規学校登録モーダル -->
+<div class="modalOverlay" id="newSchoolModal">
+  <div class="modalBox">
+    <h3>学校・団体を新規登録</h3>
+    <div class="formField">
+      <label>学校・団体名</label>
+      <input id="newSchoolName" type="text" value="京都府立北稜高等学校">
+    </div>
+    <div class="hintText" style="margin-bottom:14px;">コードは6桁のランダムな英数字で自動的に発行されます（重複しないように確認してから発行します）。</div>
+    <button class="smallBtn" id="confirmCreateSchool" style="width:100%;">登録してコードを発行</button>
+    <button class="modalClose" id="closeNewSchoolModal">キャンセル</button>
+  </div>
+</div>
+
+<!-- 共有モーダル -->
+<div class="modalOverlay" id="shareModal">
+  <div class="modalBox">
+    <h3 id="shareModalTitle">共有</h3>
+    <div class="codeBig" id="shareCodeText">------</div>
+    <div class="qrWrap"><canvas id="shareQrCanvas"></canvas></div>
+    <div class="shareBtnsRow">
+      <button id="copyCodeBtn">コードをコピー</button>
+      <button id="copyUrlBtn">URLをコピー</button>
+    </div>
+    <div class="copiedTip" id="copiedTip">コピーしました</div>
+    <button class="modalClose" id="closeShareModal">閉じる</button>
+  </div>
+</div>
+
+<!-- 更新情報モーダル -->
+<div class="modalOverlay" id="changelogModal">
+  <div class="modalBox">
+    <h3>更新情報</h3>
+    <div id="changelogList"></div>
+    <button class="modalClose" id="closeChangelogModal">閉じる</button>
+  </div>
 </div>
 
 <script>
@@ -257,18 +422,31 @@
   firebase.initializeApp(firebaseConfig);
   var db = firebase.database();
 
-  var DEFAULT_STATE = { status:'open', minutes:0, name:'', updatedAt:Date.now() };
+  var DEFAULT_STATE = { status:'open', minutes:0, name:'', resumeAt:'', updatedAt:Date.now() };
   var EDIT_LOCK_MS = 2500;
 
   var pendingMinutes = 0;
   var pendingStatus = 'open';
   var pendingName = '';
+  var pendingResumeAt = '';
   var sendTimer = null;
   var lastLocalEdit = 0;
+  var currentSchoolCode = null;
+  var currentSchoolName = '';
   var currentRoomId = null;
   var pendingMode = null;
 
+  var CHANGELOG = [
+    { title:'学校・団体コード機能を追加', detail:'学校・団体ごとにコードでデータを分けて管理できるようになりました。コードを知っている人だけが参加できます。', date:'2026-06-29' },
+    { title:'共有機能（QRコード）を追加', detail:'学校コードや教室コードを、URLのコピーやQRコードでかんたんに共有できるようになりました。', date:'2026-06-29' },
+    { title:'休止中に開始予定時刻を設定可能に', detail:'「休止中」ステータスのときに、再開予定の時間を設定して表示できるようになりました。', date:'2026-06-29' },
+    { title:'ステータスに「準備中」「休止中」を追加', detail:'状態の選択肢が5種類になりました。受付中以外のときは待ち時間の数字が非表示になります。', date:'2026-06-29' },
+    { title:'教室の削除・名前編集機能を追加', detail:'登録済みの教室を後から削除したり、名前を変更したりできるようになりました。', date:'2026-06-20' },
+    { title:'複数教室をIDで管理できるように', detail:'教室ごとにIDを発行し、複数のクラス・企画を同時に運用できるようになりました。', date:'2026-06-20' }
+  ];
+
   var screens = {
+    schoolGate: document.getElementById('schoolGate'),
     chooser: document.getElementById('chooser'),
     roomSelect: document.getElementById('roomSelect'),
     displayView: document.getElementById('displayView'),
@@ -279,58 +457,238 @@
   var activeRoomListener = null;
 
   function detachListener(){
-    if(activeRoomRef && activeRoomListener){
-      activeRoomRef.off('value', activeRoomListener);
-    }
+    if(activeRoomRef && activeRoomListener){ activeRoomRef.off('value', activeRoomListener); }
     activeRoomRef = null;
     activeRoomListener = null;
   }
-
   function showScreen(name){
     Object.keys(screens).forEach(function(k){ screens[k].style.display = (k===name)? 'flex':'none'; });
     detachListener();
   }
 
-  function genRoomId(){
+  function genCode(len){
     var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     var id='';
-    for(var i=0;i<4;i++){ id += chars[Math.floor(Math.random()*chars.length)]; }
+    for(var i=0;i<len;i++){ id += chars[Math.floor(Math.random()*chars.length)]; }
+    return id;
+  }
+  function genSchoolCode(len){
+    var chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    var id='';
+    for(var i=0;i<len;i++){ id += chars[Math.floor(Math.random()*chars.length)]; }
     return id;
   }
 
+  /* ---------------- localStorage履歴（学校） ---------------- */
+  function getSchoolHistory(){
+    try{
+      var raw = window.localStorage.getItem('wait-app-school-history');
+      return raw ? JSON.parse(raw) : [];
+    }catch(e){ return []; }
+  }
+  function addSchoolHistory(code, name){
+    var hist = getSchoolHistory();
+    hist = hist.filter(function(h){ return h.code !== code; });
+    hist.unshift({ code: code, name: name });
+    hist = hist.slice(0, 10);
+    try{ window.localStorage.setItem('wait-app-school-history', JSON.stringify(hist)); }catch(e){}
+  }
+
   /* ---------------- Firebase helpers ---------------- */
-  function getIndex(){
-    return db.ref('roomsIndex').once('value').then(function(snap){
+  function schoolRoot(code){ return 'schools/'+code; }
+
+  function getSchoolName(code){
+    return db.ref(schoolRoot(code)+'/name').once('value').then(function(snap){ return snap.val(); });
+  }
+  function createSchool(code, name){
+    return db.ref(schoolRoot(code)).set({ name: name, createdAt: Date.now() });
+  }
+  function schoolExists(code){
+    return db.ref(schoolRoot(code)+'/name').once('value').then(function(snap){ return snap.val()!==null; });
+  }
+
+  function getIndex(schoolCode){
+    return db.ref(schoolRoot(schoolCode)+'/roomsIndex').once('value').then(function(snap){
       var val = snap.val();
       return val ? Object.keys(val) : [];
     });
   }
-  function addToIndex(id){
-    return db.ref('roomsIndex/'+id).set(true);
+  function addToIndex(schoolCode, id){
+    return db.ref(schoolRoot(schoolCode)+'/roomsIndex/'+id).set(true);
   }
-  function removeFromIndex(id){
-    return db.ref('roomsIndex/'+id).remove();
+  function removeFromIndex(schoolCode, id){
+    return db.ref(schoolRoot(schoolCode)+'/roomsIndex/'+id).remove();
   }
-  function getRoomState(id){
-    return db.ref('rooms/'+id).once('value').then(function(snap){
+  function getRoomState(schoolCode, id){
+    return db.ref(schoolRoot(schoolCode)+'/rooms/'+id).once('value').then(function(snap){
       return snap.val() || Object.assign({}, DEFAULT_STATE);
     });
   }
-  function setRoomState(id, state){
-    return db.ref('rooms/'+id).set(state).then(function(){ return true; }).catch(function(){ return false; });
+  function setRoomState(schoolCode, id, state){
+    return db.ref(schoolRoot(schoolCode)+'/rooms/'+id).set(state).then(function(){ return true; }).catch(function(){ return false; });
   }
-  function removeRoom(id){
-    return db.ref('rooms/'+id).remove();
+  function removeRoom(schoolCode, id){
+    return db.ref(schoolRoot(schoolCode)+'/rooms/'+id).remove();
   }
-  function updateRoomName(id, name){
-    return db.ref('rooms/'+id).update({ name: name, updatedAt: Date.now() });
+  function updateRoomName(schoolCode, id, name){
+    return db.ref(schoolRoot(schoolCode)+'/rooms/'+id).update({ name: name, updatedAt: Date.now() });
   }
 
-  /* ---------------- 起動選択画面 ---------------- */
+  /* ---------------- 共有モーダル ---------------- */
+  function buildShareUrl(params){
+    var base = window.location.origin + window.location.pathname;
+    var qs = Object.keys(params).map(function(k){ return k+'='+encodeURIComponent(params[k]); }).join('&');
+    return base + '?' + qs;
+  }
+  function openShareModal(title, code, url){
+    document.getElementById('shareModalTitle').textContent = title;
+    document.getElementById('shareCodeText').textContent = code;
+    document.getElementById('copiedTip').style.display='none';
+    var canvas = document.getElementById('shareQrCanvas');
+    if(window.QRCode){
+      QRCode.toCanvas(canvas, url, { width:200, margin:1 }, function(){});
+    }
+    document.getElementById('copyCodeBtn').onclick = function(){ copyToClipboard(code); };
+    document.getElementById('copyUrlBtn').onclick = function(){ copyToClipboard(url); };
+    document.getElementById('shareModal').style.display='flex';
+  }
+  function copyToClipboard(text){
+    var tip = document.getElementById('copiedTip');
+    function done(){ tip.style.display='block'; setTimeout(function(){ tip.style.display='none'; }, 1800); }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(done).catch(function(){ fallbackCopy(text, done); });
+    } else {
+      fallbackCopy(text, done);
+    }
+  }
+  function fallbackCopy(text, cb){
+    var ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); }catch(e){}
+    document.body.removeChild(ta);
+    cb();
+  }
+  document.getElementById('closeShareModal').onclick = function(){ document.getElementById('shareModal').style.display='none'; };
+
+  document.getElementById('shareSchoolBtn').onclick = function(){
+    if(!currentSchoolCode) return;
+    var url = buildShareUrl({ school: currentSchoolCode });
+    openShareModal('学校コードを共有', currentSchoolCode, url);
+  };
+  document.getElementById('shareRoomBtn').onclick = function(){
+    if(!currentSchoolCode || !currentRoomId) return;
+    var url = buildShareUrl({ school: currentSchoolCode, room: currentRoomId, mode: pendingMode||'control' });
+    openShareModal('教室コードを共有', currentRoomId, url);
+  };
+
+  /* ---------------- 更新情報モーダル ---------------- */
+  function renderChangelog(){
+    var wrap = document.getElementById('changelogList');
+    wrap.innerHTML='';
+    CHANGELOG.forEach(function(item){
+      var div = document.createElement('div');
+      div.className='changeItem';
+      div.innerHTML = '<div class="ctitle">'+item.title+'</div>'+
+                       '<div class="cdate">'+item.date+'</div>'+
+                       '<div class="cdetail">'+item.detail+'</div>';
+      wrap.appendChild(div);
+    });
+  }
+  function openChangelog(){ renderChangelog(); document.getElementById('changelogModal').style.display='flex'; }
+  document.getElementById('closeChangelogModal').onclick=function(){ document.getElementById('changelogModal').style.display='none'; };
+  ['bellBtnGate','bellBtnChooser','bellBtnRoomSelect','bellBtnControl'].forEach(function(id){
+    document.getElementById(id).onclick = openChangelog;
+  });
+
+  /* ---------------- 学校コード入力画面 ---------------- */
+  function showSchoolGate(){
+    showScreen('schoolGate');
+    renderHistory();
+    document.getElementById('schoolJoinError').style.display='none';
+    document.getElementById('schoolCodeInput').value='';
+  }
+  function renderHistory(){
+    var wrap = document.getElementById('historyListWrap');
+    var noHist = document.getElementById('noHistory');
+    wrap.innerHTML='';
+    var hist = getSchoolHistory();
+    if(hist.length===0){ noHist.style.display='block'; return; }
+    noHist.style.display='none';
+    hist.forEach(function(h){
+      var item = document.createElement('div');
+      item.className='roomItem';
+      var mainBtn = document.createElement('button');
+      mainBtn.className='roomItemMain';
+      mainBtn.innerHTML = (h.name||'(名称未設定)')+'<br><span class="rid">コード: '+h.code+'</span>';
+      mainBtn.onclick = function(){ joinSchool(h.code); };
+      item.appendChild(mainBtn);
+      wrap.appendChild(item);
+    });
+  }
+
+  function joinSchool(code){
+    code = code.trim().toUpperCase();
+    if(!code) return;
+    getSchoolName(code).then(function(name){
+      if(name===null){
+        document.getElementById('schoolJoinError').style.display='block';
+        return;
+      }
+      currentSchoolCode = code;
+      currentSchoolName = name;
+      addSchoolHistory(code, name);
+      try{ window.localStorage.setItem('wait-app-school', code); }catch(e){}
+      enterChooser();
+    });
+  }
+
+  document.getElementById('schoolJoinBtn').onclick = function(){
+    joinSchool(document.getElementById('schoolCodeInput').value);
+  };
+
+  document.getElementById('newSchoolBtn').onclick = function(){
+    document.getElementById('newSchoolName').value = '京都府立北稜高等学校';
+    document.getElementById('newSchoolModal').style.display='flex';
+  };
+  document.getElementById('closeNewSchoolModal').onclick = function(){
+    document.getElementById('newSchoolModal').style.display='none';
+  };
+  document.getElementById('confirmCreateSchool').onclick = function(){
+    var name = document.getElementById('newSchoolName').value.trim() || '京都府立北稜高等学校';
+    function tryCreate(){
+      var code = genSchoolCode(6);
+      schoolExists(code).then(function(exists){
+        if(exists){ tryCreate(); return; }
+        createSchool(code, name).then(function(){
+          document.getElementById('newSchoolModal').style.display='none';
+          currentSchoolCode = code;
+          currentSchoolName = name;
+          addSchoolHistory(code, name);
+          try{ window.localStorage.setItem('wait-app-school', code); }catch(e){}
+          enterChooser();
+        });
+      });
+    }
+    tryCreate();
+  };
+
+  /* ---------------- 起動選択画面（学校選択後） ---------------- */
+  function enterChooser(){
+    document.getElementById('chooserSchoolName').textContent = currentSchoolName || '(名称未設定)';
+    document.getElementById('chooserSchoolSub').innerHTML = 'コード: '+currentSchoolCode+' ・ <a href="#" id="changeSchoolLink" style="color:var(--sub);">学校を変更</a>';
+    document.getElementById('changeSchoolLink').onclick = function(ev){
+      ev.preventDefault();
+      try{ window.localStorage.removeItem('wait-app-school'); }catch(e){}
+      showSchoolGate();
+    };
+    showScreen('chooser');
+  }
+
   document.getElementById('goDisplay').onclick=function(){ pendingMode='display'; openRoomSelect(); };
   document.getElementById('goControl').onclick=function(){ pendingMode='control'; openRoomSelect(); };
   document.getElementById('rsBack').onclick=function(){ showScreen('chooser'); };
 
+  /* ---------------- 教室選択画面 ---------------- */
   function openRoomSelect(){
     document.getElementById('rsTitle').textContent = pendingMode==='display' ? '表示する教室を選択' : '操作する教室を選択';
     document.getElementById('createSection').style.display = pendingMode==='control' ? 'block' : 'none';
@@ -342,11 +700,11 @@
     var wrap = document.getElementById('roomListWrap');
     var noRooms = document.getElementById('noRooms');
     wrap.innerHTML='';
-    getIndex().then(function(idx){
+    getIndex(currentSchoolCode).then(function(idx){
       if(idx.length===0){ noRooms.style.display='block'; return; }
       noRooms.style.display='none';
       idx.forEach(function(id){
-        getRoomState(id).then(function(state){
+        getRoomState(currentSchoolCode, id).then(function(state){
           var item = document.createElement('div');
           item.className='roomItem';
 
@@ -361,6 +719,15 @@
           var roomListLabelMap = { prep:'準備中', open:state.minutes+'分', paused:'休止中', full:'満席', closed:'終了' };
           minSpan.textContent = roomListLabelMap[state.status] !== undefined ? roomListLabelMap[state.status] : (state.minutes+'分');
 
+          var shareBtn = document.createElement('button');
+          shareBtn.className='iconBtn share';
+          shareBtn.textContent='📤';
+          shareBtn.onclick = function(ev){
+            ev.stopPropagation();
+            var url = buildShareUrl({ school: currentSchoolCode, room: id, mode: pendingMode||'control' });
+            openShareModal('教室コードを共有', id, url);
+          };
+
           var editBtn = document.createElement('button');
           editBtn.className='iconBtn edit';
           editBtn.textContent='✎';
@@ -368,7 +735,7 @@
             ev.stopPropagation();
             var newName = window.prompt('新しい名前を入力してください', state.name || '');
             if(newName!==null){
-              updateRoomName(id, newName.trim()).then(refreshRoomList);
+              updateRoomName(currentSchoolCode, id, newName.trim()).then(refreshRoomList);
             }
           };
 
@@ -378,18 +745,16 @@
           delBtn.onclick = function(ev){
             ev.stopPropagation();
             var ok = window.confirm(
-              '本当に削除しますか？\n\n' +
-              '教室名：' + label + '\n' +
-              '教室ID：' + id + '\n\n' +
-              'この操作は取り消せません。'
+              '本当に削除しますか？\n\n教室名：' + label + '\n教室ID：' + id + '\n\nこの操作は取り消せません。'
             );
             if(ok){
-              Promise.all([removeRoom(id), removeFromIndex(id)]).then(refreshRoomList);
+              Promise.all([removeRoom(currentSchoolCode, id), removeFromIndex(currentSchoolCode, id)]).then(refreshRoomList);
             }
           };
 
           item.appendChild(mainBtn);
           item.appendChild(minSpan);
+          item.appendChild(shareBtn);
           item.appendChild(editBtn);
           item.appendChild(delBtn);
           wrap.appendChild(item);
@@ -400,12 +765,14 @@
 
   document.getElementById('createRoomBtn').onclick = function(){
     var name = document.getElementById('newRoomName').value.trim();
-    var id = genRoomId();
-    var state = { status:'open', minutes:0, name:name, updatedAt:Date.now() };
-    setRoomState(id, state).then(function(){
-      return addToIndex(id);
+    var customId = document.getElementById('newRoomId').value.trim();
+    var id = customId || genCode(4);
+    var state = { status:'open', minutes:0, name:name, resumeAt:'', updatedAt:Date.now() };
+    setRoomState(currentSchoolCode, id, state).then(function(){
+      return addToIndex(currentSchoolCode, id);
     }).then(function(){
       document.getElementById('newRoomName').value='';
+      document.getElementById('newRoomId').value='';
       var notice = document.getElementById('createdIdNotice');
       notice.style.display='block';
       notice.textContent = '登録しました（教室ID: '+id+'）この画面のまま操作画面に移動します';
@@ -414,9 +781,9 @@
   };
 
   document.getElementById('joinIdBtn').onclick = function(){
-    var raw = document.getElementById('joinIdInput').value.trim().toUpperCase();
+    var raw = document.getElementById('joinIdInput').value.trim();
     if(!raw) return;
-    addToIndex(raw).then(function(){ selectRoom(raw); });
+    addToIndex(currentSchoolCode, raw).then(function(){ selectRoom(raw); });
   };
 
   function selectRoom(id){
@@ -424,6 +791,7 @@
     try{
       window.localStorage.setItem('wait-app-mode', pendingMode);
       window.localStorage.setItem('wait-app-roomid', id);
+      window.localStorage.setItem('wait-app-school', currentSchoolCode);
     }catch(e){}
     if(pendingMode==='display'){ enterDisplay(id); }
     else { enterControl(id); }
@@ -435,6 +803,7 @@
   var attractionName = document.getElementById('attractionName');
   var statusLabel = document.getElementById('statusLabel');
   var roomLabel = document.getElementById('roomLabel');
+  var resumeAtLabel = document.getElementById('resumeAtLabel');
   var waitNum = document.getElementById('waitNum');
   var updatedAt = document.getElementById('updatedAt');
   var connState = document.getElementById('connState');
@@ -445,6 +814,12 @@
     attractionName.textContent = state.name || '';
     attractionName.style.display = state.name ? 'block' : 'none';
     statusLabel.textContent = statusLabelMap[state.status] || '受付中';
+    if(state.status==='paused' && state.resumeAt){
+      resumeAtLabel.textContent = '再開予定 ' + state.resumeAt;
+      resumeAtLabel.style.display='block';
+    } else {
+      resumeAtLabel.style.display='none';
+    }
     if(state.status==='open'){
       roomLabel.style.display='block';
       waitNum.parentElement.style.display='flex';
@@ -466,15 +841,16 @@
     document.getElementById('displayRoomId').textContent = 'ID: '+id;
     showScreen('displayView');
     connState.textContent = '接続中…';
-    activeRoomRef = db.ref('rooms/'+id);
-    activeRoomListener = function(snap){
-      renderDisplay(snap.val() || DEFAULT_STATE);
-    };
+    activeRoomRef = db.ref(schoolRoot(currentSchoolCode)+'/rooms/'+id);
+    activeRoomListener = function(snap){ renderDisplay(snap.val() || DEFAULT_STATE); };
     activeRoomRef.on('value', activeRoomListener);
   }
 
   document.getElementById('displayBack').onclick=function(){
-    try{ window.localStorage.removeItem('wait-app-mode'); window.localStorage.removeItem('wait-app-roomid'); }catch(e){}
+    try{
+      window.localStorage.removeItem('wait-app-mode');
+      window.localStorage.removeItem('wait-app-roomid');
+    }catch(e){}
     showScreen('chooser');
   };
 
@@ -484,14 +860,15 @@
   var presetButtons = document.querySelectorAll('.presetBtn');
   var liveStatus = document.getElementById('liveStatus');
   var nameInput = document.getElementById('nameInput');
+  var resumeInput = document.getElementById('resumeInput');
+  var pauseTimeSection = document.getElementById('pauseTimeSection');
 
   function setActiveStatusButton(){
     statusButtons.forEach(function(btn){
-      btn.classList.remove('active','open','full','closed');
-      if(btn.dataset.status===pendingStatus){
-        btn.classList.add('active', pendingStatus);
-      }
+      btn.classList.remove('active','open','prep','full','paused','closed');
+      if(btn.dataset.status===pendingStatus){ btn.classList.add('active', pendingStatus); }
     });
+    pauseTimeSection.style.display = (pendingStatus==='paused') ? 'block' : 'none';
   }
 
   function scheduleSend(){
@@ -503,9 +880,12 @@
   }
 
   function sendState(){
-    if(!currentRoomId) return;
-    var newState = { status: pendingStatus, minutes: pendingMinutes, name: pendingName, updatedAt: Date.now() };
-    setRoomState(currentRoomId, newState).then(function(ok){
+    if(!currentRoomId || !currentSchoolCode) return;
+    var newState = {
+      status: pendingStatus, minutes: pendingMinutes, name: pendingName,
+      resumeAt: pendingStatus==='paused' ? pendingResumeAt : '', updatedAt: Date.now()
+    };
+    setRoomState(currentSchoolCode, currentRoomId, newState).then(function(ok){
       if(ok){
         liveStatus.textContent = '自動反映済み（' + new Date().toLocaleTimeString('ja-JP') + '）';
         liveStatus.classList.add('ok');
@@ -523,7 +903,6 @@
       scheduleSend();
     };
   });
-
   presetButtons.forEach(function(btn){
     btn.onclick = function(){
       pendingMinutes = parseInt(btn.dataset.min,10);
@@ -531,35 +910,19 @@
       scheduleSend();
     };
   });
+  document.getElementById('minus5').onclick = function(){ pendingMinutes = Math.max(0, pendingMinutes-5); currentVal.textContent = pendingMinutes; scheduleSend(); };
+  document.getElementById('plus5').onclick = function(){ pendingMinutes = pendingMinutes+5; currentVal.textContent = pendingMinutes; scheduleSend(); };
+  document.getElementById('minus1').onclick = function(){ pendingMinutes = Math.max(0, pendingMinutes-1); currentVal.textContent = pendingMinutes; scheduleSend(); };
+  document.getElementById('plus1').onclick = function(){ pendingMinutes = pendingMinutes+1; currentVal.textContent = pendingMinutes; scheduleSend(); };
 
-  document.getElementById('minus5').onclick = function(){
-    pendingMinutes = Math.max(0, pendingMinutes-5);
-    currentVal.textContent = pendingMinutes;
-    scheduleSend();
-  };
-  document.getElementById('plus5').onclick = function(){
-    pendingMinutes = pendingMinutes+5;
-    currentVal.textContent = pendingMinutes;
-    scheduleSend();
-  };
-  document.getElementById('minus1').onclick = function(){
-    pendingMinutes = Math.max(0, pendingMinutes-1);
-    currentVal.textContent = pendingMinutes;
-    scheduleSend();
-  };
-  document.getElementById('plus1').onclick = function(){
-    pendingMinutes = pendingMinutes+1;
-    currentVal.textContent = pendingMinutes;
-    scheduleSend();
-  };
+  nameInput.addEventListener('input', function(){ pendingName = nameInput.value; scheduleSend(); });
+  resumeInput.addEventListener('input', function(){ pendingResumeAt = resumeInput.value; scheduleSend(); });
 
-  nameInput.addEventListener('input', function(){
-    pendingName = nameInput.value;
-    scheduleSend();
-  });
-
-  document.getElementById('controlBack').onclick=function(){
-    try{ window.localStorage.removeItem('wait-app-mode'); window.localStorage.removeItem('wait-app-roomid'); }catch(e){}
+  document.getElementById('controlBackBtn').onclick = function(){
+    try{
+      window.localStorage.removeItem('wait-app-mode');
+      window.localStorage.removeItem('wait-app-roomid');
+    }catch(e){}
     showScreen('chooser');
   };
 
@@ -567,15 +930,17 @@
     pendingStatus = state.status || 'open';
     pendingMinutes = state.minutes || 0;
     pendingName = state.name || '';
+    pendingResumeAt = state.resumeAt || '';
     currentVal.textContent = pendingMinutes;
     nameInput.value = pendingName;
+    resumeInput.value = pendingResumeAt;
     setActiveStatusButton();
   }
 
   function enterControl(id){
     document.getElementById('ctrlRoomId').textContent = '教室ID: '+id;
     showScreen('controlView');
-    activeRoomRef = db.ref('rooms/'+id);
+    activeRoomRef = db.ref(schoolRoot(currentSchoolCode)+'/rooms/'+id);
     activeRoomListener = function(snap){
       if(Date.now() - lastLocalEdit < EDIT_LOCK_MS) return;
       applyStateToControlUI(snap.val() || DEFAULT_STATE);
@@ -583,18 +948,57 @@
     activeRoomRef.on('value', activeRoomListener);
   }
 
-  /* ---------------- 起動時の状態復元 ---------------- */
-  showScreen('chooser');
-  try{
-    var savedMode = window.localStorage.getItem('wait-app-mode');
-    var savedRoom = window.localStorage.getItem('wait-app-roomid');
-    if(savedMode && savedRoom){
-      pendingMode = savedMode;
-      currentRoomId = savedRoom;
-      if(savedMode==='display'){ enterDisplay(savedRoom); }
-      else { enterControl(savedRoom); }
+  /* ---------------- 起動時の状態復元（URLパラメータ優先） ---------------- */
+  function init(){
+    var params = new URLSearchParams(window.location.search);
+    var pSchool = params.get('school');
+    var pRoom = params.get('room');
+    var pMode = params.get('mode');
+
+    if(pSchool){
+      getSchoolName(pSchool).then(function(name){
+        if(name===null){ showSchoolGate(); return; }
+        currentSchoolCode = pSchool;
+        currentSchoolName = name;
+        addSchoolHistory(pSchool, name);
+        try{ window.localStorage.setItem('wait-app-school', pSchool); }catch(e){}
+        if(pMode && pRoom){
+          pendingMode = pMode;
+          selectRoom(pRoom);
+        } else {
+          enterChooser();
+        }
+      });
+      return;
     }
-  }catch(e){}
+
+    try{
+      var savedSchool = window.localStorage.getItem('wait-app-school');
+      var savedMode = window.localStorage.getItem('wait-app-mode');
+      var savedRoom = window.localStorage.getItem('wait-app-roomid');
+      if(savedSchool){
+        getSchoolName(savedSchool).then(function(name){
+          if(name===null){ showSchoolGate(); return; }
+          currentSchoolCode = savedSchool;
+          currentSchoolName = name;
+          if(savedMode && savedRoom){
+            pendingMode = savedMode;
+            currentRoomId = savedRoom;
+            if(savedMode==='display'){ enterDisplay(savedRoom); }
+            else { enterControl(savedRoom); }
+          } else {
+            enterChooser();
+          }
+        });
+      } else {
+        showSchoolGate();
+      }
+    }catch(e){
+      showSchoolGate();
+    }
+  }
+
+  init();
 
 })();
 </script>
