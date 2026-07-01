@@ -171,7 +171,7 @@
     font-size:28px;font-weight:800;letter-spacing:3px;text-align:center;
     background:#262a33;border-radius:12px;padding:14px;margin-bottom:14px;word-break:break-all;
   }
-  .qrWrap{display:flex;justify-content:center;margin-bottom:14px;}
+  .qrWrap{display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:14px;}
   .qrWrap img{border-radius:12px;background:#fff;padding:8px;width:200px;height:200px;}
   .shareBtnsRow{display:flex;gap:8px;flex-wrap:wrap;}
   .shareBtnsRow button{
@@ -376,8 +376,9 @@
     <h3>学校・団体を新規登録</h3>
     <div class="formField">
       <label>学校・団体名</label>
-      <input id="newSchoolName" type="text" value="京都府立北稜高等学校">
+      <input id="newSchoolName" type="text" placeholder="例：〇〇高等学校 / 〇〇クラス" value="">
     </div>
+    <div class="errorText" id="newSchoolNameError">学校・団体名を入力してください</div>
     <div class="hintText" style="margin-bottom:14px;">コードは6桁のランダムな英数字で自動的に発行されます（重複しないように確認してから発行します）。</div>
     <button class="smallBtn" id="confirmCreateSchool" style="width:100%;">登録してコードを発行</button>
     <button class="modalClose" id="closeNewSchoolModal">キャンセル</button>
@@ -389,7 +390,10 @@
   <div class="modalBox">
     <h3 id="shareModalTitle">共有</h3>
     <div class="codeBig" id="shareCodeText">------</div>
-    <div class="qrWrap"><img id="shareQrImg" src="" alt="QR"></div>
+    <div class="qrWrap">
+      <img id="shareQrImg" src="" alt="QR">
+      <div id="qrFallbackText" class="hintText" style="display:none;">QRコードの読み込みに失敗しました。下のボタンからコードかURLを共有してください。</div>
+    </div>
     <div class="shareBtnsRow">
       <button class="native" id="nativeShareBtn">📤 共有</button>
       <button id="copyUrlBtn">URLをコピー</button>
@@ -480,18 +484,38 @@
   }
 
   /* ---------------- localStorage履歴（学校） ---------------- */
+  var SCHOOL_HISTORY_KEY = 'wait-app-school-history';
+  var SCHOOL_HISTORY_MAX = 20;
+
   function getSchoolHistory(){
     try{
-      var raw = window.localStorage.getItem('wait-app-school-history');
-      return raw ? JSON.parse(raw) : [];
-    }catch(e){ return []; }
+      var raw = window.localStorage.getItem(SCHOOL_HISTORY_KEY);
+      if(!raw) return [];
+      var parsed = JSON.parse(raw);
+      if(!Array.isArray(parsed)) return [];
+      // 壊れたデータ（codeやnameが無いもの）は除外する
+      return parsed.filter(function(h){
+        return h && typeof h.code === 'string' && h.code.length > 0 && typeof h.name === 'string';
+      });
+    }catch(e){
+      return [];
+    }
   }
   function addSchoolHistory(code, name){
+    if(!code) return;
     var hist = getSchoolHistory();
     hist = hist.filter(function(h){ return h.code !== code; });
-    hist.unshift({ code: code, name: name });
-    hist = hist.slice(0, 10);
-    try{ window.localStorage.setItem('wait-app-school-history', JSON.stringify(hist)); }catch(e){}
+    hist.unshift({ code: code, name: name || '(名称未設定)', lastUsedAt: Date.now() });
+    hist = hist.slice(0, SCHOOL_HISTORY_MAX);
+    try{
+      window.localStorage.setItem(SCHOOL_HISTORY_KEY, JSON.stringify(hist));
+    }catch(e){
+      // 保存容量オーバーなどの場合は件数を減らして再試行
+      try{
+        hist = hist.slice(0, 5);
+        window.localStorage.setItem(SCHOOL_HISTORY_KEY, JSON.stringify(hist));
+      }catch(e2){}
+    }
   }
 
   /* ---------------- Firebase helpers ---------------- */
@@ -549,9 +573,18 @@
     document.getElementById('shareModalTitle').textContent = title;
     document.getElementById('shareCodeText').textContent = code;
     document.getElementById('copiedTip').style.display='none';
-    // Google Charts APIでQRを画像として取得（ライブラリ不要・Safari確実対応）
-    var qrUrl = 'https://chart.googleapis.com/chart?cht=qr&chs=200x200&chld=M|1&chl=' + encodeURIComponent(url);
-    document.getElementById('shareQrImg').src = qrUrl;
+    // QRコードはqrserver.com（無料・安定・ライブラリ不要）の画像APIを使用
+    var qrImg = document.getElementById('shareQrImg');
+    var qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=8&data=' + encodeURIComponent(url);
+    qrImg.onerror = function(){
+      qrImg.style.display='none';
+      document.getElementById('qrFallbackText').style.display='block';
+    };
+    qrImg.onload = function(){
+      qrImg.style.display='block';
+      document.getElementById('qrFallbackText').style.display='none';
+    };
+    qrImg.src = qrUrl;
     document.getElementById('shareModal').style.display='flex';
   }
   function copyToClipboard(text){
@@ -658,14 +691,20 @@
   };
 
   document.getElementById('newSchoolBtn').onclick = function(){
-    document.getElementById('newSchoolName').value = '京都府立北稜高等学校';
+    document.getElementById('newSchoolName').value = '';
+    document.getElementById('newSchoolNameError').style.display = 'none';
     document.getElementById('newSchoolModal').style.display='flex';
   };
   document.getElementById('closeNewSchoolModal').onclick = function(){
     document.getElementById('newSchoolModal').style.display='none';
   };
   document.getElementById('confirmCreateSchool').onclick = function(){
-    var name = document.getElementById('newSchoolName').value.trim() || '京都府立北稜高等学校';
+    var name = document.getElementById('newSchoolName').value.trim();
+    if(!name){
+      document.getElementById('newSchoolNameError').style.display = 'block';
+      return;
+    }
+    document.getElementById('newSchoolNameError').style.display = 'none';
     function tryCreate(){
       var code = genSchoolCode(6);
       schoolExists(code).then(function(exists){
